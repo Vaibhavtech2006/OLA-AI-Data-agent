@@ -1,0 +1,24 @@
+[project]
+name = "ola-ai-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Vaibhav Khandelwal", email = "khandelwalvaibhav2006@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "dotenv>=0.9.9",
+    "langchain>=1.3.18",
+    "langchain-google-genai>=4.3.7",
+    "langchain-groq>=1.1.3",
+    "langgraph>=1.2.11",
+    "pydantic>=2.13.5",
+]
+
+[project.scripts]
+ola-ai-agent = "ola_ai_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
