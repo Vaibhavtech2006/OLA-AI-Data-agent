@@ -11,8 +11,8 @@ sys.path.append(
 from utils.llm_pick import pick_llm
 from utils.database import DatabaseUtil
 from Models.schema import AgentSchema,JudgeSchema
-import langchain_core.messages import HumanMessgae
-
+from langchain_core.messages import HumanMessgae
+from langraph.graph import StateGraph,START,END
 
 #-------------------AI Agent code------------------------------
 
@@ -106,6 +106,7 @@ def canceled_sql(state: AgentSchema) -> AgentSchema:
     comments = state.comments
 
     state.final_answer =f"The generated SQL query was deemed unsafe to execute . The reason provided by the judge is: {comments}.Therefore the sql query will not be executed."
+    state.messages = state.messages + [AIMessage(content=f"{state.final_answer}")]
 
     return state
     
@@ -157,5 +158,57 @@ def represent_final_answer(state:AgentSchema)-> AgentSchema:
 
 
 
+#------------------------------------------graph building---------------------------------------------
+
+sql_agent_graph = StateGraph(AgentSchema)
+
+# Nodes
+sql_agent_graph.add_node(curate_ques,name="curate_ques")
+sql_agent_graph.add_node(prompt_query_context,name="prompt_query_context")
+sql_agent_graph.add_node(generate_sql,name="generate_sql")
+sql_agent_graph.add_node(is_safe_sql,name="is_safe_sql")
+sql_agent_graph.add_node(canceled_sql,name="canceled_sql")
+sql_agent_graph.add_node(execute_sql,name="execute_sql")
+sql_agent_graph.add_node(represent_final_answer,name="represent_final_answer")
+
+# Edges
+sql_agent_graph.add_edge(START, "curate_ques")
+sql_agent_graph.add_edge("curate_ques", "prompt_query_context")
+sql_agent_graph.add_edge("prompt_query_context", "generate_sql")
+sql_agent_graph.add_edge("generate_sql", "is_safe_sql")
+
+def is_safe_sql_edge(state: AgentSchema) -> str:
+    is_safe = state.is_safe
+
+    if is_safe.lower() == "yes":
+        return "execute_sql"
+
+    else :
+        return "canceled_sql"
+
+sql_agent_graph.add_conditional_edges("is_safe_sql", is_safe_sql_edge,
+                                      {
+                                          "execute_sql": "execute_sql",
+                                          "canceled_sql": "canceled_sql"
+                                      })
+
+# sql_agent_graph.add_edge("is_safe_sql", "execute_sql")
+# sql_agent_graph.add_edge("is_safe_sql", "canceled_sql")
+
+sql_agent_graph.add_edge("canceled_sql", END)
+sql_agent_graph.add_edge("execute_sql", "represent_final_answer")
+sql_agent_graph.add_edge("represent_final_answer", END)
+
+# Compile the Graph
+sql_analyst = sql_agent_graph.compile()
+
+if __name__ == "__main__":
+
+
+    # Optional
+    from IPython.display import display, Image
+    img = Image(sql_analyst.get_graph().draw_mermaid_png())
+    with open("sql_analyst_graph.png", "wb") as f:
+        f.write(img.data)
 
     
