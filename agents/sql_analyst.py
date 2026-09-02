@@ -1,49 +1,45 @@
 import os
 import sys
+import re  # Added for cleaning the LLM output
 
-
-sys.path.append(
-    os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..")
-    )
-)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.llm_pick import pick_llm
 from utils.database import DatabaseUtil
-from Models.schema import AgentSchema,JudgeSchema
-from langchain_core.messages import HumanMessgae
-from langraph.graph import StateGraph,START,END
+from models.schema import AgentSchema, JudgeSchema
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph import StateGraph, START, END
 
-#-------------------AI Agent code------------------------------
 
-def curate_question(state: AgentSchema) -> AgentSchema:
+# -------------------------------------- AI Agent Code --------------------------------------
 
-    user_question = state.user_question 
-    llm = pick_llm("low")
-    response = llm.invoke(f"Curate the following question : {user_question}")
+def curate_ques(state: AgentSchema) -> AgentSchema: 
+    user_question = state.user_question # Bcz this is a Pydantic model object
+
+    llm = pick_llm("low")  # Pick the appropriate LLM based on the level of the question
+    response = llm.invoke(f"Curate the following question: {user_question}").content
 
     state.curated_ques = response
-    state.messages =state.messages +[HumanMessage(content=f"{response}")]
-    return state
+    state.messages = state.messages + [HumanMessage(content=f"{response}")]  # Append the curated question to the messages list
+
+    return state 
 
 
 def prompt_query_context(state: AgentSchema) -> AgentSchema:
-
     curated_question = state.curated_ques
 
     conn_details = {
-        "host" :os.environ['host'],
+        "host": os.environ['host'],
         "port": os.environ['port'],
         "user": os.environ['user'],
-        "password":os.environ['password'],
-        "dbname": os.environ['dbname']
+        "password": os.environ['password'],
+        "dbname": os.environ['database']
     }
 
     obj = DatabaseUtil(conn_details)
+    schema_info = obj.schema_details("public")  # Fetch schema details for the 'public' schema
 
-    schema_info = obj.schema_details("public")
-
-      # Constructing the prompt query for the agent to generate the SQL query
+    # Constructing the prompt query for the agent to generate the SQL query
     prompt = f"""
     You are an SQL analyst agent. Your task is to convert the user's natural language 
     query into Postgres SQL query that can be executed on the database. You are provided 
@@ -59,29 +55,41 @@ def prompt_query_context(state: AgentSchema) -> AgentSchema:
 
     Database Schema Details:
     {schema_info}
-    
     """    
 
     state.prompt_query_context = prompt
 
     return state
 
-def generate_sql(state: AgentSchema) -> AgentSchema:
 
+# Generate SQL Query Node
+def generate_sql(state: AgentSchema) -> AgentSchema:
     prompt = state.prompt_query_context
 
     llm = pick_llm("medium")  # Pick the appropriate LLM based on the level of the question
-
     generated_sql_query = llm.invoke(prompt).content  # Generate the SQL query using the LLM
 
-    state.generated_sql_query = generated_sql_query
+    # --- FIX: Clean the LLM output ---
+    # 1. Remove <think>...</think> blocks (often output by reasoning models like DeepSeek)
+    cleaned_query = re.sub(r'<think>.*?</think>', '', generated_sql_query, flags=re.DOTALL)
+    
+    # 2. Remove markdown code blocks if the LLM wraps the query in ```sql ... ```
+    cleaned_query = re.sub(r'```(?:sql)?(.*?)```', r'\1', cleaned_query, flags=re.DOTALL)
+    
+    # 3. Strip extra spaces and newlines
+    cleaned_query = cleaned_query.strip()
+    # ---------------------------------
+
+    state.generated_sql_query = cleaned_query
 
     return state
 
 
+# Is safe Node
 def is_safe_sql(state: AgentSchema) -> AgentSchema:
-    sql_query = state.generate_sql_query
-    llm = pick_llm("medium")
+    sql_query = state.generated_sql_query
+
+    llm = pick_llm("medium")  
     llm_judge = llm.with_structured_output(JudgeSchema)
 
     prompt = f"""
@@ -101,17 +109,18 @@ def is_safe_sql(state: AgentSchema) -> AgentSchema:
     return state
 
 
+# Canceled SQL Query Node
 def canceled_sql(state: AgentSchema) -> AgentSchema:
-
     comments = state.comments
 
-    state.final_answer =f"The generated SQL query was deemed unsafe to execute . The reason provided by the judge is: {comments}.Therefore the sql query will not be executed."
-    state.messages = state.messages + [AIMessage(content=f"{state.final_answer}")]
+    state.final_answer = f"The generated SQL query was deemed unsafe to execute. The reason provided by the judge is: {comments}. Therefore, the SQL query will not be executed."
+    state.messages = state.messages + [AIMessage(content=f"{state.final_answer}")]  # Append the final answer to the messages list  
 
     return state
-    
-def execute_sql(state: AgentSchema) -> AgentSchema:
 
+
+# Execute SQL Query Node
+def execute_sql(state: AgentSchema) -> AgentSchema:
     sql_query = state.generated_sql_query
 
     conn_details = {
@@ -126,19 +135,24 @@ def execute_sql(state: AgentSchema) -> AgentSchema:
 
     execution_result = obj.execute_sql(sql_query)  # Execute the SQL query on the database
 
-    state.sql_query_execution_result = execution_result
+    # --- FIX: Ensure execution_result is a string for Pydantic schema validation ---
+    if execution_result is None:
+        execution_result = "Error: SQL execution failed, syntax error, or returned no results."
+    
+    state.sql_query_execution_result = str(execution_result)
+    # -------------------------------------------------------------------------------
 
     return state
 
 
-def represent_final_answer(state:AgentSchema)-> AgentSchema:
-
-
+# Represent the final answer Node
+def represent_final_answer(state: AgentSchema) -> AgentSchema:
     execution_result = state.sql_query_execution_result
     curated_question = state.curated_ques
 
-    llm= pick_llm("low")
-     prompt = f"""
+    llm = pick_llm("low")
+
+    prompt = f"""
     You are an SQL analyst agent. Your task is to provide a final answer to the user based on the
     execution result of the SQL query and the user's original question. The final answer should be
     concise, clear, and directly address the user's query. Avoid including any SQL code or technical
@@ -156,20 +170,18 @@ def represent_final_answer(state:AgentSchema)-> AgentSchema:
     return state
 
 
-
-
-#------------------------------------------graph building---------------------------------------------
+# ------------------------------------------- Graph Building -------------------------------------------
 
 sql_agent_graph = StateGraph(AgentSchema)
 
 # Nodes
-sql_agent_graph.add_node(curate_ques,name="curate_ques")
-sql_agent_graph.add_node(prompt_query_context,name="prompt_query_context")
-sql_agent_graph.add_node(generate_sql,name="generate_sql")
-sql_agent_graph.add_node(is_safe_sql,name="is_safe_sql")
-sql_agent_graph.add_node(canceled_sql,name="canceled_sql")
-sql_agent_graph.add_node(execute_sql,name="execute_sql")
-sql_agent_graph.add_node(represent_final_answer,name="represent_final_answer")
+sql_agent_graph.add_node(curate_ques, name="curate_ques")
+sql_agent_graph.add_node(prompt_query_context, name="prompt_query_context")
+sql_agent_graph.add_node(generate_sql, name="generate_sql")
+sql_agent_graph.add_node(is_safe_sql, name="is_safe_sql")
+sql_agent_graph.add_node(canceled_sql, name="canceled_sql")
+sql_agent_graph.add_node(execute_sql, name="execute_sql")
+sql_agent_graph.add_node(represent_final_answer, name="represent_final_answer")
 
 # Edges
 sql_agent_graph.add_edge(START, "curate_ques")
@@ -177,23 +189,23 @@ sql_agent_graph.add_edge("curate_ques", "prompt_query_context")
 sql_agent_graph.add_edge("prompt_query_context", "generate_sql")
 sql_agent_graph.add_edge("generate_sql", "is_safe_sql")
 
+# Conditional Edge Function
 def is_safe_sql_edge(state: AgentSchema) -> str:
     is_safe = state.is_safe
 
     if is_safe.lower() == "yes":
         return "execute_sql"
-
-    else :
+    else:
         return "canceled_sql"
 
-sql_agent_graph.add_conditional_edges("is_safe_sql", is_safe_sql_edge,
-                                      {
-                                          "execute_sql": "execute_sql",
-                                          "canceled_sql": "canceled_sql"
-                                      })
-
-# sql_agent_graph.add_edge("is_safe_sql", "execute_sql")
-# sql_agent_graph.add_edge("is_safe_sql", "canceled_sql")
+sql_agent_graph.add_conditional_edges(
+    "is_safe_sql", 
+    is_safe_sql_edge,
+    {
+        "execute_sql": "execute_sql",
+        "canceled_sql": "canceled_sql"
+    }
+)
 
 sql_agent_graph.add_edge("canceled_sql", END)
 sql_agent_graph.add_edge("execute_sql", "represent_final_answer")
@@ -204,11 +216,37 @@ sql_analyst = sql_agent_graph.compile()
 
 if __name__ == "__main__":
 
+    # Optional image drawing
+    try:
+        from IPython.display import display, Image
+        img = Image(sql_analyst.get_graph().draw_mermaid_png())
+        with open("sql_analyst_graph.png", "wb") as f:
+            f.write(img.data)
+    except Exception as e:
+        print(f"Could not generate graph image: {e}")
 
-    # Optional
-    from IPython.display import display, Image
-    img = Image(sql_analyst.get_graph().draw_mermaid_png())
-    with open("sql_analyst_graph.png", "wb") as f:
-        f.write(img.data)
+    input_schema = {
+        "messages": [],
+        "user_question": "What are the different types of Payment Methods we have in our database",
+        "curated_ques": "",
+        "prompt_query_context": "",
+        "generated_sql_query": "",
+        "is_safe": "No",
+        "comments": "",
+        "sql_query_execution_result": "",
+        "final_answer": ""
+    }
 
+    # Execute the Graph
+    sql_analyst_response = sql_analyst.invoke(input_schema)
+    print("------- MESSAGES -------")
+    print(sql_analyst_response['messages'])  # Print the final output of the graph execution
     
+    print("\n------- GENERATED SQL QUERY -------")
+    print(sql_analyst_response['generated_sql_query'])  # Print the generated SQL query
+
+    print("\n------- SQL EXECUTION RESULT -------")
+    print(sql_analyst_response['sql_query_execution_result'])  # Print the result of executing the SQL query
+
+    print("\n------- PROMPT CONTEXT -------")
+    print(sql_analyst_response['prompt_query_context'])  # Print the prompt query context
