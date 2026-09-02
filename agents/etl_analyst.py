@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.llm_pick import pick_llm
 from utils.etl_tools import ETLTools
-from Models.schema import ETLAgentSchema
+from models.schema import ETLAgentSchema
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langchain.tools import tool
@@ -53,7 +53,7 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
 
     top_3_rows = etl_tools.transform_load_context(input_file_path)
 
-    llm = pick_llm("claude")
+    llm = pick_llm("grok")
 
     prompt = f"""
             You are a Python Data Analyst who uses Pandas to analyze data. 
@@ -84,7 +84,7 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
 # Toolkit 
 tools = [extract_load_tool, transform_load_tool]
 
-llm = pick_llm("claude")
+llm = pick_llm("hard")
 llm_bind = llm.bind_tools(tools)
 
 
