@@ -98,4 +98,6 @@ class ETLTools:
 if __name__ == "__main__":
     obj = ETLTools()
     # URL updated to list endpoint so data['results'] works perfectly
-    print(obj.extract_load("https://pokeapi.co/api/v2/pokemon", "data/extract", "csv"))
+    # print(obj.extract_load("https://pokeapi.co/api/v2/pokemon", "data/extract", "csv"))
+    path="E:\\OLA AI AGENT\\data\\extract\\extracted_data.csv"
+    print(obj.transform_load_context(path))
