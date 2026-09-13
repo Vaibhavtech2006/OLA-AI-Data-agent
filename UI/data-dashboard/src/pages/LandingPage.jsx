@@ -41,9 +41,10 @@ export default function LandingPage({ onNavigate }) {
         </div>
 
         {/* Right Side: 3D Cube */}
-        <div className="flex justify-center items-center relative bg-[#071924] md:rounded-l-3xl overflow-hidden shadow-inner">
-          <Cube />
-        </div>
+       {/* Right Side: 3D Cube */}
+<div className="flex justify-center items-center relative bg-white md:rounded-l-3xl overflow-visible">
+  <Cube />
+</div>
       </main>
 
       <Footer />

@@ -1,116 +1,123 @@
+/* 1. SCENE SETUP */
 .scene {
-  width: 420px;
-  height: 420px;
-  perspective: 2000px;
+  width: 260px;
+  height: 260px;
+  perspective: 1200px;
   margin: 100px auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
+/* 2. MULTI-DIRECTIONAL MOVEMENT WITH STABLE PAUSES */
 .cube-core {
-  width: 400px;
-  height: 400px;
+  width: 100%;
+  height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  animation: rotateCube 24s infinite linear; 
+  /* 15-second loop with keyframes structured for pauses */
+  animation: floatAndPauseCube 15s infinite ease-in-out;
 }
 
-@keyframes rotateCube {
-  0%   { transform: rotateX(-5deg) rotateY(0deg); }
-  100% { transform: rotateX(-5deg) rotateY(-360deg); }
+@keyframes floatAndPauseCube {
+  0%   { transform: rotateX(-10deg) rotateY(0deg) rotateZ(0deg) translateY(0px); }
+  
+  /* Moving to Face 1 & Stable Pause */
+  15%  { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateY(-10px); }
+  30%  { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateY(-10px); } 
+
+  /* Rotating to Face 2 */
+  42%  { transform: rotateX(15deg) rotateY(-90deg) rotateZ(5deg) translateY(10px); }
+  
+  /* Stable Pause on Face 2 */
+  50%  { transform: rotateX(0deg) rotateY(-90deg) rotateZ(0deg) translateY(0px); }
+  65%  { transform: rotateX(0deg) rotateY(-90deg) rotateZ(0deg) translateY(0px); }
+
+  /* Rotating to Face 3 */
+  77%  { transform: rotateX(-15deg) rotateY(-180deg) rotateZ(-5deg) translateY(-5px); }
+
+  /* Stable Pause on Face 3 */
+  85%  { transform: rotateX(0deg) rotateY(-180deg) rotateZ(0deg) translateY(0px); }
+  95%  { transform: rotateX(0deg) rotateY(-180deg) rotateZ(0deg) translateY(0px); }
+
+  100% { transform: rotateX(-10deg) rotateY(-360deg) rotateZ(0deg) translateY(0px); }
 }
 
-/* FIX: Removed backdrop-filter. Faking the glass with gradients and inset shadows */
-.premium-glass {
+/* 3. FACE POSITIONING */
+.cube-face {
   position: absolute;
-  width: 400px;
-  height: 400px;
-  border-radius: 40px;
-  /* Fake glass base */
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(5, 15, 30, 0.4) 100%);
-  /* Thick 3D rim effect without breaking perspective */
-  box-shadow: 
-    0 30px 60px rgba(0, 0, 0, 0.6),
-    inset 1px 2px 4px rgba(255, 255, 255, 0.4),
-    inset -2px -2px 10px rgba(0, 0, 0, 0.5),
-    inset 10px 10px 30px rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  flex-direction: column;
-  padding: 30px;
-  box-sizing: border-box;
-  transform-style: preserve-3d;
-}
-
-/* Cube Positioning */
-.front  { transform: rotateY(0deg) translateZ(200px); }
-.right  { transform: rotateY(90deg) translateZ(200px); }
-.back   { transform: rotateY(180deg) translateZ(200px); }
-.left   { transform: rotateY(-90deg) translateZ(200px); }
-.top    { transform: rotateX(90deg) translateZ(200px); }
-.bottom { transform: rotateX(-90deg) translateZ(200px); }
-
-/* --- THE POP-IN LAYERING LOGIC (Bug-free, no filters) --- */
-.content-wrapper {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  animation-duration: 24s;
-  animation-iteration-count: infinite;
-  animation-timing-function: linear;
-  display: flex;
-  flex-direction: column;
 }
 
-.front .content-wrapper { animation-name: popFront; }
-@keyframes popFront {
-  0%, 100% { transform: translateZ(50px) scale(1); opacity: 1; }
-  15%, 85% { transform: translateZ(0px) scale(0.9); opacity: 0; }
-  16%, 84% { opacity: 0; }
+.front  { transform: rotateY(0deg) translateZ(130px); }
+.right  { transform: rotateY(90deg) translateZ(130px); }
+.back   { transform: rotateY(180deg) translateZ(130px); }
+.left   { transform: rotateY(-90deg) translateZ(130px); }
+.top    { transform: rotateX(90deg) translateZ(130px); }
+.bottom { transform: rotateX(-90deg) translateZ(130px); }
+
+/* 4. THE WHITE GLASS PANEL */
+/* 4. THE WHITE GLASS PANEL WITH SUBTLE BLACK BOUNDARY SHADOW */
+.glass-panel {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.65);
+  /* Halki dark/black border */
+  border: 1px solid rgba(0, 0, 0, 0.12); 
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.08),
+    /* Yahan inset black shadow di hai boundaries ko highlight karne ke liye */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06), 
+    inset 0px 0px 20px rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  overflow: hidden;
 }
 
-.right .content-wrapper { animation-name: popRight; opacity: 0; }
-@keyframes popRight {
-  25% { transform: translateZ(50px) scale(1); opacity: 1; }
-  10%, 40% { transform: translateZ(0px) scale(0.9); opacity: 0; }
-  0%, 100% { opacity: 0; }
+/* 5. OUTER POP-UPS */
+.outer-popup {
+  position: absolute;
+  top: 50%;
+  width: 190px;
+  transform-style: preserve-3d;
 }
 
-.back .content-wrapper { animation-name: popBack; opacity: 0; }
-@keyframes popBack {
-  50% { transform: translateZ(50px) scale(1); opacity: 1; }
-  35%, 65% { transform: translateZ(0px) scale(0.9); opacity: 0; }
-  0%, 100% { opacity: 0; }
+.popup-left { left: -200px; }
+.popup-right { right: -200px; }
+
+.popup-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #1e293b;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  line-height: 1.35;
 }
 
-.left .content-wrapper { animation-name: popLeft; opacity: 0; }
-@keyframes popLeft {
-  75% { transform: translateZ(50px) scale(1); opacity: 1; }
-  60%, 90% { transform: translateZ(0px) scale(0.9); opacity: 0; }
-  0%, 100% { opacity: 0; }
+/* 6. SYNCED FADE ANIMATIONS WITH STABLE HOLD TIME */
+.fade-sync-front { animation: fadeFront 15s infinite ease-in-out; }
+@keyframes fadeFront {
+  0%, 5%     { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
+  12%, 32%   { opacity: 1; transform: translateY(-50%) translateZ(40px) scale(1); filter: blur(0px); }
+  40%, 100%  { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
 }
 
-/* --- UI STYLING --- */
-.section-title { 
-  color: #c0d1df; font-size: 0.8rem; font-weight: 700; letter-spacing: 1.5px; 
-  margin-bottom: 25px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+.fade-sync-right { animation: fadeRight 15s infinite ease-in-out; opacity: 0; }
+@keyframes fadeRight {
+  0%, 40%    { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
+  48%, 68%   { opacity: 1; transform: translateY(-50%) translateZ(40px) scale(1); filter: blur(0px); }
+  75%, 100%  { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
 }
-.problem-list { display: flex; flex-direction: column; gap: 12px; }
-.problem-item { 
-  display: flex; justify-content: space-between; align-items: center; 
-  padding: 16px 20px; background: rgba(0, 0, 0, 0.25); 
-  border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); 
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
+
+.fade-sync-back { animation: fadeBack 15s infinite ease-in-out; opacity: 0; }
+@keyframes fadeBack {
+  0%, 72%    { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
+  80%, 92%   { opacity: 1; transform: translateY(-50%) translateZ(40px) scale(1); filter: blur(0px); }
+  98%, 100%  { opacity: 0; transform: translateY(-50%) translateZ(-10px) scale(0.9); filter: blur(4px); }
 }
-.active-item { 
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255, 255, 255, 0.4); 
-  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1); 
-}
-.problem-info h4 { margin: 0 0 4px 0; color: #ffffff; font-size: 0.95rem; }
-.problem-info span { color: #8da3b8; font-size: 0.75rem; }
-.badge { padding: 6px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-.badge-easy { background: rgba(46, 160, 67, 0.2); color: #56d364; border: 1px solid rgba(86, 211, 100, 0.3); }
-.badge-solve { background: transparent; color: #ffffff; }
-.badge-hard { background: rgba(248, 81, 73, 0.2); color: #ff7b72; border: 1px solid rgba(255, 123, 114, 0.3); }
-.badge-medium { background: rgba(210, 153, 34, 0.2); color: #e3b341; border: 1px solid rgba(227, 179, 65, 0.3); }
