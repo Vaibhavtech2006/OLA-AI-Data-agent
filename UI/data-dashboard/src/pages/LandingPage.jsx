@@ -1,6 +1,6 @@
 import React from 'react';
 import Navbar from '../Components/Navbar';
-import GeometricArt from '../Components/GeometricArt';
+import Cube from '../Components/Cube'; // Cube component ka path apne hisaab se adjust kar lena
 import Footer from '../Components/Footer';
 
 export default function LandingPage({ onNavigate }) {
@@ -9,6 +9,7 @@ export default function LandingPage({ onNavigate }) {
       <Navbar onNavigate={onNavigate} />
 
       <main className="flex-1 grid grid-cols-1 md:grid-cols-2 relative">
+        {/* Left Side: Text Content */}
         <div className="flex flex-col justify-center px-10 py-16 lg:p-20 relative">
           <div className="text-3xl mb-6 text-black font-bold">✧</div>
           
@@ -39,7 +40,10 @@ export default function LandingPage({ onNavigate }) {
           </div>
         </div>
 
-        <GeometricArt />
+        {/* Right Side: 3D Cube */}
+        <div className="flex justify-center items-center relative bg-[#071924] md:rounded-l-3xl overflow-hidden shadow-inner">
+          <Cube />
+        </div>
       </main>
 
       <Footer />
