@@ -6,19 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 
-# FIX: Python ko main project directory ka rasta batana
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Ab ye agents folder ko easily find kar lega
 from agents.data_agent import data_agent 
 
 app = FastAPI(title="Data Agent Pro API")
 
-# ... (baaki ka code same rahega)
-# React localhost ko allow karne ke liye CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"], # React/Vite ports
+    allow_origins=["http://localhost:3000", "http://localhost:5173"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,50 +26,39 @@ class QueryRequest(BaseModel):
 @app.post("/api/execute")
 async def execute_query(req: QueryRequest):
     try:
-        # LangGraph invoke karna
+        # Invoke the multi-agent graph
         response = data_agent.invoke({
             "messages": [HumanMessage(content=req.query)],
-            "route_response": ""
+            "plan": [],
+            "current_step": 0,
+            "trace": [],
+            "dataset_path": "",
+            "chart_base64": ""
         })
         
-        # Data extract karna frontend ke liye
-        route = response.get("route_response", "UNKNOWN").upper()
+        # Extract the sequence of agents used
+        plan = response.get("plan", [])
+        trace = response.get("trace", [])
+        
+        # Extract the final output gracefully
         messages = response.get("messages", [])
-        
-        # --- FIX: Dictionary vs Object Extraction Logic ---
-        final_answer = "No response generated."
+        final_answer = "Execution complete, but no text summary was generated."
         if messages:
-            last_node_output = messages[-1]
-            
-            # Agar output ek dictionary hai (jo agents ki .invoke() return karti hai)
-            if isinstance(last_node_output, dict):
-                # SQL Agent ka response nikalna
-                if "final_answer" in last_node_output and last_node_output["final_answer"]:
-                    final_answer = last_node_output["final_answer"]
-                # ETL Agent ka response nikalna
-                elif "messages" in last_node_output and len(last_node_output["messages"]) > 0:
-                    final_answer = last_node_output["messages"][-1].content
-                else:
-                    final_answer = str(last_node_output)
-            # Agar output normal Langchain Message object hai
-            elif hasattr(last_node_output, 'content'):
-                final_answer = last_node_output.content
+            last_message = messages[-1]
+            if hasattr(last_message, 'content'):
+                final_answer = last_message.content
+            elif isinstance(last_message, dict) and "content" in last_message:
+                final_answer = last_message["content"]
             else:
-                final_answer = str(last_node_output)
-        # ------------------------------------------------
-        
-        # Professional Dashboard UI ke liye structured trace bhejna
-        trace_steps = [
-            {"step": "Router Node", "detail": f"Classified query as {route} Operation", "status": "success"},
-            {"step": f"{route} Agent", "detail": "Context and schema loaded", "status": "success"},
-            {"step": "Execution", "detail": "Query processed successfully", "status": "success"}
-        ]
+                final_answer = str(last_message)
         
         return {
             "status": "success",
-            "route": route,
-            "trace": trace_steps,
-            "result": final_answer
+            "plan_executed": plan,
+            "trace": trace,
+            "result": final_answer,
+            "dataset_path": response.get("dataset_path", ""),
+            "chart_base64": response.get("chart_base64", "")
         }
         
     except Exception as e:
