@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 // Clean SVG Icons for Agents
 const Icons = {
@@ -31,9 +31,44 @@ export default function DashboardPage({ onNavigate }) {
   const [datasetPath, setDatasetPath] = useState('');
   const [error, setError] = useState(null);
 
+  // New State for File Upload
+  const [uploadedFileDetails, setUploadedFileDetails] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // File Upload Handler
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      
+      if (data.status === "success") {
+        setUploadedFileDetails({ path: data.file_path, name: data.filename });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      alert("File upload failed: " + err.message);
+    } finally {
+      setIsUploading(false);
+      // Reset input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const handleQuerySubmit = async (e) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query && !uploadedFileDetails) return;
 
     setLoading(true);
     setError(null);
@@ -43,11 +78,17 @@ export default function DashboardPage({ onNavigate }) {
     setPlan([]);
     setActiveTab('insights');
 
+    // Append file path silently if a file is attached
+    let finalQuery = query;
+    if (uploadedFileDetails) {
+        finalQuery = `${query} (Use this dataset: ${uploadedFileDetails.path})`;
+    }
+
     try {
       const res = await fetch('http://localhost:8000/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query: finalQuery })
       });
 
       const data = await res.json();
@@ -67,6 +108,7 @@ export default function DashboardPage({ onNavigate }) {
       setTraceSteps(prev => [...prev, { step: 'System Error', detail: err.message, status: 'error' }]);
     } finally {
       setLoading(false);
+      setUploadedFileDetails(null); // Clear attachment after run
     }
   };
 
@@ -137,22 +179,61 @@ export default function DashboardPage({ onNavigate }) {
           {/* COMMAND BAR */}
           <div className="p-6 border-b border-neutral-800/60 bg-neutral-950/50">
             <form onSubmit={handleQuerySubmit} className="relative max-w-4xl">
+              
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileUpload} 
+                className="hidden" 
+                accept=".csv,.json,.parquet"
+              />
+
+              {/* Attachment Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current.click()}
+                disabled={loading || isUploading}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors duration-200 disabled:opacity-50"
+                title="Attach Dataset"
+              >
+                {isUploading ? (
+                   <div className="w-5 h-5 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                )}
+              </button>
+
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={loading}
                 placeholder="Ask the cluster to extract, analyze, or forecast..."
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-5 pr-32 py-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 shadow-sm disabled:opacity-50"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-12 pr-32 py-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 shadow-sm disabled:opacity-50"
               />
+              
               <button
                 type="submit"
-                disabled={loading || !query}
+                disabled={loading || (!query && !uploadedFileDetails)}
                 className="absolute right-2 top-2 bottom-2 bg-white text-black px-5 rounded-lg text-xs font-bold hover:bg-neutral-200 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading ? 'Processing' : 'Execute'}
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </button>
+
+              {/* Show attached file indicator below the input bar */}
+              {uploadedFileDetails && (
+                <div className="absolute -bottom-7 left-0 flex items-center gap-2 text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Attached: {uploadedFileDetails.name}
+                  <button type="button" onClick={() => setUploadedFileDetails(null)} className="ml-2 text-neutral-500 hover:text-red-400">
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
 

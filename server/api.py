@@ -1,7 +1,8 @@
 import os
 import sys
+import shutil
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
@@ -23,10 +24,21 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
 
+# Naya Upload Endpoint
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        os.makedirs("data/uploads", exist_ok=True)
+        file_path = f"data/uploads/{file.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return {"status": "success", "file_path": file_path, "filename": file.filename}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/execute")
 async def execute_query(req: QueryRequest):
     try:
-        # Invoke the multi-agent graph
         response = data_agent.invoke({
             "messages": [HumanMessage(content=req.query)],
             "plan": [],
@@ -36,11 +48,9 @@ async def execute_query(req: QueryRequest):
             "chart_base64": ""
         })
         
-        # Extract the sequence of agents used
         plan = response.get("plan", [])
         trace = response.get("trace", [])
         
-        # Extract the final output gracefully
         messages = response.get("messages", [])
         final_answer = "Execution complete, but no text summary was generated."
         if messages:
