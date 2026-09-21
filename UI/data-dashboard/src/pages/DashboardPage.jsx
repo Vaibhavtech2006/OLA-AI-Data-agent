@@ -7,7 +7,8 @@ const Icons = {
   search: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
   chart: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
   cpu: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>,
-  trending: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+  trending: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+  rag: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
 };
 
 const AGENTS = [
@@ -16,7 +17,8 @@ const AGENTS = [
   { id: 'eda', name: 'Data Profiler', icon: Icons.search },
   { id: 'visualization', name: 'Viz Engine', icon: Icons.chart },
   { id: 'ml', name: 'ML Scientist', icon: Icons.cpu },
-  { id: 'forecasting', name: 'Time-Series', icon: Icons.trending }
+  { id: 'forecasting', name: 'Time-Series', icon: Icons.trending },
+  { id: 'rag', name: 'Knowledge RAG', icon: Icons.rag }
 ];
 
 export default function DashboardPage({ onNavigate }) {
@@ -211,7 +213,7 @@ export default function DashboardPage({ onNavigate }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={loading}
-                placeholder="Ask the cluster to extract, analyze, or forecast..."
+                placeholder="Ask the cluster to extract, analyze, search knowledge, or forecast..."
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-12 pr-32 py-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 shadow-sm disabled:opacity-50"
               />
               
